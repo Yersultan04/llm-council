@@ -11,9 +11,11 @@ load_dotenv(Path(__file__).parent.parent.parent / ".env")
 from council import (  # noqa: E402
     COUNCIL_BY_NAME,
     CouncilResult,
+    DebateResult,
     get_models_status,
     run_council,
     run_quick,
+    run_debate,
     ask_member,
 )
 
@@ -126,6 +128,49 @@ def list_models() -> str:
     lines.append("\n> Используй `ask_council()`, `ask_quick()`, или `ask_model()` для запросов.")
 
     return "\n".join(lines)
+
+
+def _format_debate(result: DebateResult) -> str:
+    lines = [
+        f"## LLM Debate — {result['available']} моделей, {result['total_rounds']} раунда",
+        f"**Вопрос:** {result['question']}\n",
+        f"> Дебаты завершены. Попроси меня обобщить итог.\n",
+    ]
+
+    for i, round_opinions in enumerate(result["rounds"], 1):
+        label = "Начальные позиции" if i == 1 else f"После аргументов других"
+        lines.append(f"---\n## Раунд {i} — {label}\n")
+        for name, text in round_opinions.items():
+            status = "❌" if text.startswith("[НЕДОСТУПЕН") else "✅"
+            lines.append(f"### {status} {name}\n{text}\n")
+
+    return "\n".join(lines)
+
+
+@mcp.tool()
+async def debate(question: str, rounds: int = 2) -> str:
+    """
+    Многораундовые дебаты между 5 бесплатными моделями (Llama, QwQ, Gemini, DeepSeek, Ollama).
+
+    Раунд 1: каждая модель даёт начальный ответ.
+    Раунд 2+: каждая читает ответы других и обновляет позицию — соглашается или спорит.
+
+    Синтез НЕ включён — попроси Claude обобщить после получения дебатов.
+    Стоимость: $0.00 (только бесплатные модели).
+
+    rounds — количество раундов, от 1 до 3 (default: 2)
+    """
+    rounds = max(1, min(3, rounds))
+    timeout = 50 * rounds
+
+    try:
+        async with asyncio.timeout(timeout):
+            result = await run_debate(question, rounds=rounds, verbose=False)
+        return _format_debate(result)
+    except TimeoutError:
+        return f"⏱️ Дебаты превысили лимит ({timeout} сек). Попробуй с rounds=1."
+    except Exception as e:
+        return f"❌ Ошибка: {type(e).__name__}: {e}"
 
 
 if __name__ == "__main__":
