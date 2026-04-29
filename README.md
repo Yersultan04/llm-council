@@ -4,6 +4,8 @@
 
 A Model Context Protocol (MCP) server that orchestrates a council of 6 LLMs — free and paid — to give you multi-perspective answers on any question.
 
+![LLM Council Demo](demo.svg)
+
 ## How It Works
 
 ```
