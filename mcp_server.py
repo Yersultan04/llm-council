@@ -41,14 +41,16 @@ def _format_result(result: CouncilResult, show_synthesis: bool = True) -> str:
 @mcp.tool()
 async def ask_council(question: str, models: list[str] | None = None) -> str:
     """
-    Задать вопрос совету из LLM моделей — все ответят параллельно, Claude синтезирует итог.
+    Задать вопрос совету из бесплатных LLM моделей — все ответят параллельно.
+    Синтез НЕ включён — попроси Claude обобщить после получения ответов. Стоимость: $0.00.
 
     Параметры:
       question — вопрос на любом языке
-      models   — (опционально) список имён моделей: Llama-70B, Gemini-Flash, QwQ-32B,
-                 DeepSeek, Ollama-Local, Claude-Haiku. Если не указан — все 6.
+      models   — (опционально) список имён: Llama-70B, Gemini-Flash, QwQ-32B,
+                 DeepSeek, Ollama-Local. Если не указан — все бесплатные модели.
     """
-    members = None
+    from council import FREE_MEMBERS
+    members = FREE_MEMBERS
     if models:
         members = [COUNCIL_BY_NAME[n] for n in models if n in COUNCIL_BY_NAME]
         unknown = [n for n in models if n not in COUNCIL_BY_NAME]
@@ -59,10 +61,11 @@ async def ask_council(question: str, models: list[str] | None = None) -> str:
 
     try:
         async with asyncio.timeout(TIMEOUT_SECONDS):
-            result = await run_council(question, verbose=False, members=members)
-        return _format_result(result, show_synthesis=True)
+            result = await run_quick(question, verbose=False)
+        output = _format_result(result, show_synthesis=False)
+        return output + "\n\n---\n> Попроси меня обобщить эти мнения — синтез бесплатно через подписку."
     except TimeoutError:
-        return f"⏱️ Совет превысил лимит времени ({TIMEOUT_SECONDS} сек). Попробуй ask_quick() для быстрого ответа."
+        return f"⏱️ Совет превысил лимит времени ({TIMEOUT_SECONDS} сек)."
     except Exception as e:
         return f"❌ Ошибка совета: {type(e).__name__}: {e}"
 
