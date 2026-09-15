@@ -1,18 +1,14 @@
 """
-LLM Council — 6 моделей обсуждают вопрос, Claude подводит итог.
+LLM Council v2 — 5 рабочих бесплатных моделей, Chelsea синтезирует.
 
-Совет:
-  1. Llama-70B      — Groq (бесплатно)
-  2. Gemini-Flash   — Google AI Studio (бесплатно)
-  3. QwQ-32B        — Groq (бесплатно)
-  4. DeepSeek       — OpenRouter free tier (бесплатно)
-  5. Ollama-Local   — локально (бесплатно)
-  6. Claude-Haiku   — Anthropic API (платно, дёшево)
+Состав совета (всё бесплатно):
+  Groq:        Llama-70B, Llama4-Scout, Qwen3-32B, Llama-8B
+  OpenRouter:  Nemotron-120B
 
 Режимы:
-  run_council()  — параллельные ответы + синтез Claude
-  run_quick()    — только бесплатные, без синтеза
-  run_debate()   — многораундовые дебаты, модели спорят друг с другом
+  run_council()  — приоритетные модели параллельно, синтез делает Chelsea
+  run_quick()    — все бесплатные, без синтеза
+  run_debate()   — только быстрые модели (3 Groq), без таймаута
 """
 
 import asyncio
@@ -85,6 +81,7 @@ class DebateResult(TypedDict):
 # --- Состав совета ---
 
 COUNCIL: list[Member] = [
+    # --- Groq (быстрые, надёжные, приоритет) ---
     Member(
         name="Llama-70B",
         model="llama-3.3-70b-versatile",
@@ -93,44 +90,44 @@ COUNCIL: list[Member] = [
         free=True,
     ),
     Member(
-        name="Gemini-Flash",
-        model="gemini-2.0-flash",
-        base_url="https://generativelanguage.googleapis.com/v1beta/openai",
-        key_env="GEMINI_API_KEY",
-        free=True,
-    ),
-    Member(
-        name="QwQ-32B",
-        model="qwen-qwq-32b",
+        name="Llama4-Scout",
+        model="meta-llama/llama-4-scout-17b-16e-instruct",
         base_url="https://api.groq.com/openai/v1",
         key_env="GROQ_API_KEY",
         free=True,
     ),
     Member(
-        name="DeepSeek",
-        model="deepseek/deepseek-chat:free",
+        name="Qwen3-32B",
+        model="qwen/qwen3-32b",
+        base_url="https://api.groq.com/openai/v1",
+        key_env="GROQ_API_KEY",
+        free=True,
+    ),
+    Member(
+        name="Llama-8B",
+        model="llama-3.1-8b-instant",
+        base_url="https://api.groq.com/openai/v1",
+        key_env="GROQ_API_KEY",
+        free=True,
+    ),
+    # --- OpenRouter free tier ---
+    Member(
+        name="Nemotron-120B",
+        model="nvidia/nemotron-3-super-120b-a12b:free",
         base_url="https://openrouter.ai/api/v1",
         key_env="OPENROUTER_API_KEY",
         free=True,
     ),
-    Member(
-        name="Ollama-Local",
-        model="llama3.3",
-        base_url="http://localhost:11434/v1",
-        key_env=None,
-        free=True,
-    ),
-    Member(
-        name="Claude-Haiku",
-        model="claude-haiku-4-5",
-        base_url=None,
-        key_env="ANTHROPIC_API_KEY",
-        use_anthropic=True,
-        free=False,
-    ),
 ]
 
 FREE_MEMBERS = [m for m in COUNCIL if m.free]
+
+# Быстрые модели для debate (только Groq — минимальная задержка)
+FAST_MEMBERS = [m for m in COUNCIL if m.key_env == "GROQ_API_KEY"][:3]
+
+# Топ-5 для ask_council (Groq приоритет, потом OpenRouter)
+PRIORITY_MEMBERS = [m for m in COUNCIL if m.key_env in ("GROQ_API_KEY", "OPENROUTER_API_KEY")][:5]
+
 COUNCIL_BY_NAME: dict[str, Member] = {m.name: m for m in COUNCIL}
 
 
@@ -211,52 +208,7 @@ Be direct and specific. Engage with the actual arguments made."""
 
 # --- Синтез председателем ---
 
-async def chairman_synthesize(
-    question: str,
-    opinions: dict[str, str],
-    verbose: bool = True,
-) -> str:
-    valid = {k: v for k, v in opinions.items() if not v.startswith("[НЕДОСТУПЕН")}
-
-    if not valid:
-        return "Все члены совета недоступны."
-
-    opinions_block = "\n\n".join(
-        f"=== {name} ===\n{text}" for name, text in valid.items()
-    )
-
-    prompt = f"""Ты — председатель совета ИИ-моделей. Синтезируй ответы участников в единый итог.
-
-ВОПРОС: {question}
-
-ОТВЕТЫ СОВЕТА ({len(valid)} участников):
-{opinions_block}
-
-Предоставь:
-1. **Консенсус** — в чём модели согласны
-2. **Ключевые расхождения** — важные разногласия или уникальные точки зрения
-3. **Итоговый ответ** — твой синтезированный, авторитетный ответ
-
-Будь конкретным и лаконичным. Отвечай на том же языке, что и вопрос."""
-
-    client = _get_anthropic_client()
-    result = ""
-
-    async with client.messages.stream(
-        model="claude-haiku-4-5",
-        max_tokens=2048,
-        system="Ты мудрый председатель совета. Синтезируй разные точки зрения ИИ в чёткие actionable ответы.",
-        messages=[{"role": "user", "content": prompt}],
-        cache_control={"type": "ephemeral"},
-    ) as stream:
-        async for chunk in stream.text_stream:
-            if verbose:
-                print(chunk, end="", flush=True)
-            result += chunk
-
-    if verbose:
-        print()
-    return result
+# Синтез выполняет Chelsea (основной Claude) — платный API не нужен
 
 
 # --- Основные функции ---
@@ -266,15 +218,7 @@ async def run_council(
     verbose: bool = True,
     members: list[Member] | None = None,
 ) -> CouncilResult:
-    council = members or COUNCIL
-    separator = "=" * 62
-
-    if verbose:
-        print(f"\n{separator}")
-        print(f"  LLM COUNCIL — {len(council)} моделей")
-        print(f"{separator}")
-        print(f"Вопрос: {question}\n")
-        print("Фаза 1: Собираем мнения (параллельно)...\n")
+    council = members or PRIORITY_MEMBERS
 
     tasks = [ask_member(m, question) for m in council]
     results = await asyncio.gather(*tasks)
@@ -289,16 +233,10 @@ async def run_council(
 
     available = sum(1 for t in opinions.values() if not t.startswith("[НЕДОСТУПЕН"))
 
-    if verbose:
-        print(f"{separator}")
-        print(f"Фаза 2: Председатель синтезирует ({available}/{len(council)})...\n")
-
-    synthesis = await chairman_synthesize(question, opinions, verbose=verbose)
-
     return CouncilResult(
         question=question,
         opinions=opinions,
-        synthesis=synthesis,
+        synthesis="",
         available=available,
         total=len(council),
     )
@@ -350,7 +288,7 @@ async def run_debate(
     Раунд 2+ — каждая модель читает других и спорит или соглашается.
     Без синтеза — попроси Claude обобщить результат.
     """
-    council = members or FREE_MEMBERS
+    council = members or FAST_MEMBERS
     all_rounds: list[dict[str, str]] = []
 
     if verbose:

@@ -10,6 +10,8 @@ load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 from council import (  # noqa: E402
     COUNCIL_BY_NAME,
+    FAST_MEMBERS,
+    PRIORITY_MEMBERS,
     CouncilResult,
     DebateResult,
     get_models_status,
@@ -21,7 +23,8 @@ from council import (  # noqa: E402
 
 mcp = FastMCP("LLM Council")
 
-TIMEOUT_SECONDS = 120
+TIMEOUT_SECONDS = 90
+DEBATE_TIMEOUT_SECONDS = 90
 
 
 def _format_result(result: CouncilResult, show_synthesis: bool = True) -> str:
@@ -49,8 +52,7 @@ async def ask_council(question: str, models: list[str] | None = None) -> str:
       models   — (опционально) список имён: Llama-70B, Gemini-Flash, QwQ-32B,
                  DeepSeek, Ollama-Local. Если не указан — все бесплатные модели.
     """
-    from council import FREE_MEMBERS
-    members = FREE_MEMBERS
+    members = PRIORITY_MEMBERS
     if models:
         members = [COUNCIL_BY_NAME[n] for n in models if n in COUNCIL_BY_NAME]
         unknown = [n for n in models if n not in COUNCIL_BY_NAME]
@@ -125,10 +127,8 @@ def list_models() -> str:
             f"**{s['name']}** (`{s['model']}`) — {key_icon} {s['key_note']} | {tier}"
         )
 
-    chairman_ok = bool(os.environ.get("ANTHROPIC_API_KEY"))
-    chairman_icon = "✅" if chairman_ok else "❌"
-    lines.append(f"\n---\n**Председатель:** Claude Haiku — {chairman_icon} ANTHROPIC_API_KEY")
-    lines.append("\n> Используй `ask_council()`, `ask_quick()`, или `ask_model()` для запросов.")
+    lines.append("\n---\n**Синтез:** Chelsea (основной Claude) — бесплатно через подписку")
+    lines.append("\n> Используй `ask_council()`, `debate()`, или `ask_model()` для запросов.")
 
     return "\n".join(lines)
 
@@ -164,14 +164,13 @@ async def debate(question: str, rounds: int = 2) -> str:
     rounds — количество раундов, от 1 до 3 (default: 2)
     """
     rounds = max(1, min(3, rounds))
-    timeout = 50 * rounds
 
     try:
-        async with asyncio.timeout(timeout):
-            result = await run_debate(question, rounds=rounds, verbose=False)
+        async with asyncio.timeout(DEBATE_TIMEOUT_SECONDS):
+            result = await run_debate(question, rounds=rounds, verbose=False, members=FAST_MEMBERS)
         return _format_debate(result)
     except TimeoutError:
-        return f"⏱️ Дебаты превысили лимит ({timeout} сек). Попробуй с rounds=1."
+        return f"⏱️ Дебаты превысили лимит ({DEBATE_TIMEOUT_SECONDS} сек). Попробуй с rounds=1."
     except Exception as e:
         return f"❌ Ошибка: {type(e).__name__}: {e}"
 
