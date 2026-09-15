@@ -49,8 +49,8 @@ async def ask_council(question: str, models: list[str] | None = None) -> str:
 
     Параметры:
       question — вопрос на любом языке
-      models   — (опционально) список имён: Llama-70B, Gemini-Flash, QwQ-32B,
-                 DeepSeek, Ollama-Local. Если не указан — все бесплатные модели.
+      models   — (опционально) список имён: GPT-OSS-120B, Qwen3.8-27B, GPT-OSS-20B,
+                 Nemotron-120B. Если не указан — все бесплатные модели.
     """
     members = PRIORITY_MEMBERS
     if models:
@@ -75,7 +75,7 @@ async def ask_council(question: str, models: list[str] | None = None) -> str:
 @mcp.tool()
 async def ask_quick(question: str) -> str:
     """
-    Быстрый запрос только к бесплатным моделям (Llama, QwQ, Gemini, DeepSeek, Ollama).
+    Быстрый запрос только к бесплатным моделям совета (см. list_models()).
     Без синтеза — только сырые ответы. Быстрее и дешевле ask_council().
     """
     try:
@@ -94,7 +94,7 @@ async def ask_model(question: str, model: str) -> str:
     Задать вопрос одной конкретной модели совета.
     Используй list_models() чтобы увидеть доступные имена.
 
-    Пример: ask_model("Что такое RAG?", "Llama-70B")
+    Пример: ask_model("Что такое RAG?", "GPT-OSS-120B")
     """
     member = COUNCIL_BY_NAME.get(model)
     if not member:

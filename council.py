@@ -1,8 +1,8 @@
 """
-LLM Council v2 — 5 рабочих бесплатных моделей, Chelsea синтезирует.
+LLM Council v2 — 4 рабочие бесплатные модели, Chelsea синтезирует.
 
 Состав совета (всё бесплатно):
-  Groq:        Llama-70B, Llama4-Scout, Qwen3-32B, Llama-8B
+  Groq:        GPT-OSS-120B, Qwen3.8-27B, GPT-OSS-20B
   OpenRouter:  Nemotron-120B
 
 Режимы:
@@ -82,30 +82,25 @@ class DebateResult(TypedDict):
 
 COUNCIL: list[Member] = [
     # --- Groq (быстрые, надёжные, приоритет) ---
+    # 2026-09-15: Llama 3.3 70B, Llama 4 Scout, Qwen3 32B and Llama 3.1 8B are no
+    # longer served by Groq (absent from /v1/models; Llama 3.3 70B returns 404).
     Member(
-        name="Llama-70B",
-        model="llama-3.3-70b-versatile",
+        name="GPT-OSS-120B",
+        model="openai/gpt-oss-120b",
         base_url="https://api.groq.com/openai/v1",
         key_env="GROQ_API_KEY",
         free=True,
     ),
     Member(
-        name="Llama4-Scout",
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        name="Qwen3.8-27B",
+        model="qwen/qwen3.8-27b",
         base_url="https://api.groq.com/openai/v1",
         key_env="GROQ_API_KEY",
         free=True,
     ),
     Member(
-        name="Qwen3-32B",
-        model="qwen/qwen3-32b",
-        base_url="https://api.groq.com/openai/v1",
-        key_env="GROQ_API_KEY",
-        free=True,
-    ),
-    Member(
-        name="Llama-8B",
-        model="llama-3.1-8b-instant",
+        name="GPT-OSS-20B",
+        model="openai/gpt-oss-20b",
         base_url="https://api.groq.com/openai/v1",
         key_env="GROQ_API_KEY",
         free=True,
